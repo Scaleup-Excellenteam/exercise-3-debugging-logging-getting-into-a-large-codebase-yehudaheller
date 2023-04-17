@@ -10,6 +10,42 @@ import pygame as py
 
 import ai_engine
 from enums import Player
+import logging
+from Piece import Piece
+
+logger = logging.getLogger(__name__)
+
+def display_board(board):
+    """
+    Returns a string representation of the given board.
+    """
+    board_str = ""
+    for row in board:
+        row_str = ""
+        for piece in row:
+            if piece is not None and not isinstance(piece, int):
+                row_str += piece.__class__.__name__ + " "
+            else:
+                row_str += "- "
+        board_str += row_str.strip() + "\n"
+    return board_str
+
+def count_player_pieces(chessboard, player):
+    """
+    Counts the number of pieces on the board belonging to the given player.
+    """
+    pieces_count = 0
+    for row in chessboard:
+        for piece in row:
+            if piece != -9 and piece.get_player() == player:
+                pieces_count += 1
+    return pieces_count
+
+def setup_logging(log_file, level=logging.DEBUG):
+    """
+    Sets up a logger that writes messages to the given file.
+    """
+    logging.basicConfig(filename=log_file, filemode='a', format='%(asctime)s - %(levelname)s - %(message)s', level=level)
 
 """Variables"""
 WIDTH = HEIGHT = 512  # width and height of the chess board
@@ -86,6 +122,10 @@ def highlight_square(screen, game_state, valid_moves, square_selected):
 
 
 def main():
+    num_checks = 0
+    white_complete_turns = 0
+    black_complete_turns = 0
+
     # Check for the number of players and the color of the AI
     human_player = ""
     while True:
@@ -93,6 +133,7 @@ def main():
             number_of_players = input("How many players (1 or 2)?\n")
             if int(number_of_players) == 1:
                 number_of_players = 1
+                logger.info("one player playing")
                 while True:
                     human_player = input("What color do you want to play (w or b)?\n")
                     if human_player is "w" or human_player is "b":
@@ -102,6 +143,8 @@ def main():
                 break
             elif int(number_of_players) == 2:
                 number_of_players = 2
+                logger.info("two player playing")
+
                 break
             else:
                 print("Enter 1 or 2.\n")
@@ -122,8 +165,11 @@ def main():
     ai = ai_engine.chess_ai()
     game_state = chess_engine.game_state()
     if human_player is 'b':
+        logger.info("AI are starting")
         ai_move = ai.minimax_black(game_state, 3, -100000, 100000, True, Player.PLAYER_1)
         game_state.move_piece(ai_move[0], ai_move[1], True)
+    else:
+        logger.info("person are starting")
 
     while running:
         for e in py.event.get():
@@ -159,6 +205,21 @@ def main():
                             elif human_player is 'b':
                                 ai_move = ai.minimax_black(game_state, 3, -100000, 100000, True, Player.PLAYER_1)
                                 game_state.move_piece(ai_move[0], ai_move[1], True)
+
+                            if game_state._is_check:
+                                num_checks += 1
+
+                            if count_player_pieces(game_state.board, "white"):
+                                white_complete_turns += 1
+
+                            if count_player_pieces(game_state.board, "black"):
+                                black_complete_turns += 1
+
+                            logger.info(f"Total turns where the white team had all their pieces: {white_complete_turns}")
+                            logger.info(f"Total turns where the black team had all their pieces: {black_complete_turns}")
+                            logger.info(f"Total number of checks that occurred in the game so far: {num_checks}")
+                            logger.info("Current board state:\n" + display_board(game_state.board))
+
                     else:
                         valid_moves = game_state.get_valid_moves((row, col))
                         if valid_moves is None:
@@ -268,4 +329,8 @@ def draw_text(screen, text):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(filename='ChessGame.log', level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.info("Starting a new game")
     main()
+    logger.info("End game")
